@@ -9,6 +9,7 @@ services:
     depends_on:
       - mongodb
       - rag_api
+      - code-interpreter
     image: registry.librechat.ai/danny-avila/librechat-dev:latest
     restart: always
     user: "${UID}:${GID}"
@@ -18,8 +19,10 @@ services:
       - HOST=0.0.0.0
       - MONGO_URI=mongodb://mongodb:27017/LibreChat
       - MEILI_HOST=http://meilisearch:7700
-      - RAG_PORT=${RAG_PORT:-8000}
-      - RAG_API_URL=http://rag_api:${RAG_PORT:-8000}
+      - RAG_API_URL=http://rag_api:8000
+      - CODE_INTERPRETER_URL=http://code-interpreter:5000
+      - GOOGLE_APPLICATION_CREDENTIALS_JSON=${GOOGLE_APPLICATION_CREDENTIALS_JSON}
+      - GOOGLE_SERVICE_KEY_FILE=${GOOGLE_APPLICATION_CREDENTIALS_JSON}
     volumes:
       - type: bind
         source: ./.env
@@ -56,17 +59,30 @@ services:
     restart: always
     volumes:
       - pgdata2:/var/lib/postgresql/data
+  
   rag_api:
     container_name: rag_api
     image: registry.librechat.ai/danny-avila/librechat-rag-api-dev-lite:latest
     environment:
-      - DB_HOST=vectordb
-      - RAG_PORT=${RAG_PORT:-8000}
+    - DB_HOST=vectordb
+    - RAG_API_URL=http://rag_api:8000
+    - EMBEDDINGS_PROVIDER=google
+    - EMBEDDINGS_MODEL=text-embedding-004
+    - GOOGLE_APPLICATION_CREDENTIALS_JSON=${GOOGLE_APPLICATION_CREDENTIALS_JSON}
     restart: always
     depends_on:
       - vectordb
     env_file:
       - .env
+
+  code-interpreter:
+    container_name: code-interpreter
+    image: ghcr.io/danny-avila/librechat:latest
+    restart: always
+    environment:
+      - API_KEY=${LIBRECHAT_CODE_API_KEY}
+    ports:
+      - "5000:5000"
 
 volumes:
   pgdata2:
